@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NIX PRO — EPS Marañón S.A.</title>
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="shortcut icon" href="favicon.ico">
-<link rel="manifest" href="manifest.json">
 <style>
 :root {
     --bg-primary: #ffffff;
@@ -1023,16 +1020,12 @@ body {
             </div>
         </div>
 
-        <div class="sidebar-user" style="justify-content:space-between">
-            <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="navigateTo('settings')">
-                <div class="user-avatar" id="userAvatarSidebar">NV</div>
-                <div class="user-info">
-                    <div class="user-name" id="sidebarUserName">Ing. Nicolás Valdivia</div>
-                    <div class="user-role">Jefe ODR · EPS Marañón</div>
-                </div>
+        <div class="sidebar-user" onclick="navigateTo('settings')">
+            <div class="user-avatar" id="userAvatarSidebar">NV</div>
+            <div class="user-info">
+                <div class="user-name" id="sidebarUserName">Ing. Nicolás Valdivia</div>
+                <div class="user-role">Jefe ODR · EPS Marañón</div>
             </div>
-            <button onclick="handleLogout()" title="Cerrar sesión" aria-label="Cerrar sesión"
-                style="background:none;border:none;cursor:pointer;font-size:16px;opacity:0.6;padding:6px;border-radius:8px;flex-shrink:0">🚪</button>
         </div>
     </aside>
 
@@ -1723,7 +1716,6 @@ body {
 
 <!-- Firebase SDK (proyecto real: nix-pro-85366) -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
 
@@ -1743,16 +1735,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
-const auth = firebase.auth();
 const KB_COLLECTION = db.collection('kb_items');
-
-// Dominio interno para convertir "usuario" en un correo válido para Firebase Auth.
-// Si el usuario ya escribe un correo completo (con @), se usa tal cual.
-const NIX_AUTH_DOMAIN = 'nixpro.local';
-function toAuthEmail(rawUser) {
-    const val = (rawUser || '').trim();
-    return val.includes('@') ? val : `${val}@${NIX_AUTH_DOMAIN}`;
-}
 
 // ============================
 // CONFIGURATION
@@ -2197,60 +2180,22 @@ function togglePasswordVisibility(inputId, btn) {
 }
 
 // ============================
-// LOGIN (Firebase Authentication real)
+// LOGIN
 // ============================
-async function handleLogin(e) {
+function handleLogin(e) {
     e.preventDefault();
-
-    const userRaw = document.getElementById('loginEmail').value;
-    const pass = document.getElementById('loginPass').value;
-    const submitBtn = e.target.querySelector('.login-btn');
-    const email = toAuthEmail(userRaw);
-
-    submitBtn.disabled = true;
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Verificando…';
-
-    try {
-        await auth.signInWithEmailAndPassword(email, pass);
-        // El resto (ocultar loginScreen, mostrar appContainer) lo hace
-        // onAuthStateChanged para mantener todo en un solo lugar.
-    } catch (err) {
-        let msg = 'No se pudo iniciar sesión. Intenta de nuevo.';
-        if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-            msg = 'Usuario o contraseña incorrectos.';
-        } else if (err.code === 'auth/too-many-requests') {
-            msg = 'Demasiados intentos fallidos. Espera unos minutos.';
-        } else if (err.code === 'auth/network-request-failed') {
-            msg = 'Sin conexión a internet. Verifica tu red.';
-        }
-        showToast('danger', 'Error de inicio de sesión', msg);
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+    document.getElementById('loginScreen').classList.remove('active');
+    document.getElementById('appContainer').classList.add('active');
+    showToast('success', 'Bienvenido', 'Sesión iniciada · NIX PRO 3.0');
+    
+    // Check API key after login
+    const savedKey = getCurrentApiKey();
+    if (!savedKey) {
+        setTimeout(() => {
+            showApiKeyBanner();
+        }, 1000);
     }
 }
-
-function handleLogout() {
-    auth.signOut();
-}
-
-// Única fuente de verdad de sesión: si Firebase dice que hay usuario
-// autenticado, se muestra la app; si no, se muestra el login.
-auth.onAuthStateChanged((user) => {
-    const loginScreen = document.getElementById('loginScreen');
-    const appContainer = document.getElementById('appContainer');
-    if (user) {
-        loginScreen.classList.remove('active');
-        appContainer.classList.add('active');
-
-        const savedKey = getCurrentApiKey();
-        if (!savedKey) setTimeout(() => showApiKeyBanner(), 1000);
-    } else {
-        appContainer.classList.remove('active');
-        loginScreen.classList.add('active');
-    }
-});
 
 // ============================
 // NAVIGATION
