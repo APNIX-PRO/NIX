@@ -489,6 +489,7 @@ body {
 .map-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; height: 560px; position: relative; }
 .map-view { height: 100%; background: linear-gradient(135deg, #0d1b35 0%, #0a1220 100%); position: relative; overflow: hidden; }
 .map-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(99,102,241,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.08) 1px, transparent 1px); background-size: 40px 40px; }
+@keyframes pulseMarker { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.7; } }
 .road { position: absolute; background: rgba(148,163,184,0.25); }
 .road-h1 { top: 30%; left: 0; right: 0; height: 8px; }
 .road-h2 { top: 60%; left: 0; right: 0; height: 6px; }
@@ -616,52 +617,91 @@ body {
 #googleMap { border-radius: var(--radius-lg); }
 </style>
 
-<!-- Google Maps API -->
+<!-- Google Maps API (con respaldo automático a OpenStreetMap si falla) -->
 <script>
+  // Coordenadas de Jaén, Perú
+  const CIUDADES = {
+    jaen:        { lat: -5.7056, lng: -78.8081, zoom: 14 },
+    bellavista:  { lat: -5.6559, lng: -78.5981, zoom: 14 },
+    san_ignacio: { lat: -5.1444, lng: -79.0044, zoom: 14 }
+  };
+
+  // Activos de red con coordenadas reales aproximadas (Jaén)
+  const ACTIVOS = {
+    valve1:     { lat: -5.7030, lng: -78.8110, tipo: 'valve',     titulo: 'Válvula VLP-001 (6")',      info: 'Av. Marañón N° 245<br>Estado: <b style="color:#10b981">Operativo</b><br>Última revisión: Hoy 09:30' },
+    hydrant1:   { lat: -5.7075, lng: -78.8060, tipo: 'hydrant',   titulo: 'Hidrante HTP-023',           info: 'Jr. Libertad 890<br>Estado: <b style="color:#10b981">Operativo</b><br>Tipo: Poste' },
+    meter1:     { lat: -5.7040, lng: -78.8050, tipo: 'meter',     titulo: 'Medidor MED-112',            info: 'Av. Industrial 123<br>Estado: <b style="color:#10b981">Operativo</b><br>Tipo: Ultrasónico' },
+    alert1:     { lat: -5.6990, lng: -78.8100, tipo: 'alert',     titulo: '⚠️ Alerta — Presión baja',  info: 'Sector Norte<br>Estado: <b style="color:#ef4444">ALERTA</b><br>Presión: &lt; 7 m.c.a.' },
+    reservoir1: { lat: -5.7090, lng: -78.8140, tipo: 'reservoir', titulo: 'Reservorio R-01 Guayacán',  info: 'Zona Perímetro ZP-15<br>Estado: <b style="color:#10b981">Operativo</b><br>Cap: 1,500 m³' }
+  };
+
+  const ICONOS_GOOGLE = {
+    valve:     { url: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png' },
+    hydrant:   { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' },
+    meter:     { url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' },
+    alert:     { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' },
+    reservoir: { url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' }
+  };
+
+  const COLORES_ACTIVO = { valve: '#f59e0b', hydrant: '#ef4444', meter: '#10b981', alert: '#ef4444', reservoir: '#3b82f6' };
+
+  const MAP_STYLES_DARK = [
+    { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a1a' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#8888cc' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a2a4a' }] },
+    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#7070b0' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1628' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3b5a8a' }] },
+    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#151530' }] },
+    { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1a1a35' }] },
+  ];
+
+  const DEFAULT_GMAPS_KEY = 'AIzaSyBFeX18iOle4P4BBFCdFuOnnS_2ucmBz3s';
+  let mapErrorObserver = null;
+  let mapFallbackTimer = null;
+  let osmActivated = false;
+  window._nixMapReady = false;
+
+  // ---- Carga de Google Maps con vigilancia de errores ----
+  function loadGoogleMaps() {
+    osmActivated = false;
+    window._nixMapReady = false;
+
+    const key = (localStorage.getItem('nix-gmaps-key') || DEFAULT_GMAPS_KEY).trim();
+
+    window.gm_authFailure = () => activateOsmFallback('auth');
+
+    const target = document.getElementById('googleMap');
+    if (target && window.MutationObserver) {
+      mapErrorObserver = new MutationObserver(() => {
+        const txt = target.textContent || '';
+        if (txt.includes('no ha cargado Google Maps') || txt.includes("didn't load Google Maps") || target.querySelector('.gm-err-container')) {
+          activateOsmFallback('render');
+        }
+      });
+      mapErrorObserver.observe(target, { childList: true, subtree: true });
+    }
+
+    // Failsafe: si en 8s no hay mapa listo, se activa el respaldo
+    mapFallbackTimer = setTimeout(() => {
+      if (!window._nixMapReady) activateOsmFallback('timeout');
+    }, 8000);
+
+    const script = document.createElement('script');
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => activateOsmFallback('network');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=initMap`;
+    document.head.appendChild(script);
+  }
+
   function initMap() {
-    // Coordenadas de Jaén, Perú
-    const ciudades = {
-      jaen:        { lat: -5.7056, lng: -78.8081, zoom: 14 },
-      bellavista:  { lat: -5.6559, lng: -78.5981, zoom: 14 },
-      san_ignacio: { lat: -5.1444, lng: -79.0044, zoom: 14 }
-    };
-
-    let ciudadActual = 'jaen';
-
-    // Activos de red con coordenadas reales aproximadas (Jaén)
-    const activos = {
-      valve1:     { lat: -5.7030, lng: -78.8110, tipo: 'valve',     titulo: 'Válvula VLP-001 (6")',      info: 'Av. Marañón N° 245<br>Estado: <b style="color:#10b981">Operativo</b><br>Última revisión: Hoy 09:30' },
-      hydrant1:   { lat: -5.7075, lng: -78.8060, tipo: 'hydrant',   titulo: 'Hidrante HTP-023',           info: 'Jr. Libertad 890<br>Estado: <b style="color:#10b981">Operativo</b><br>Tipo: Poste' },
-      meter1:     { lat: -5.7040, lng: -78.8050, tipo: 'meter',     titulo: 'Medidor MED-112',            info: 'Av. Industrial 123<br>Estado: <b style="color:#10b981">Operativo</b><br>Tipo: Ultrasónico' },
-      alert1:     { lat: -5.6990, lng: -78.8100, tipo: 'alert',     titulo: '⚠️ Alerta — Presión baja',  info: 'Sector Norte<br>Estado: <b style="color:#ef4444">ALERTA</b><br>Presión: &lt; 7 m.c.a.' },
-      reservoir1: { lat: -5.7090, lng: -78.8140, tipo: 'reservoir', titulo: 'Reservorio R-01 Guayacán',  info: 'Zona Perímetro ZP-15<br>Estado: <b style="color:#10b981">Operativo</b><br>Cap: 1,500 m³' }
-    };
-
-    const iconos = {
-      valve:     { url: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png' },
-      hydrant:   { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' },
-      meter:     { url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' },
-      alert:     { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' },
-      reservoir: { url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' }
-    };
-
-    const mapStyles = [
-      { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a1a' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#8888cc' }] },
-      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a2a4a' }] },
-      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#7070b0' }] },
-      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1628' }] },
-      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3b5a8a' }] },
-      { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#151530' }] },
-      { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1a1a35' }] },
-    ];
-
     const map = new google.maps.Map(document.getElementById('googleMap'), {
-      center: ciudades.jaen,
-      zoom: ciudades.jaen.zoom,
+      center: CIUDADES.jaen,
+      zoom: CIUDADES.jaen.zoom,
       mapTypeId: 'roadmap',
-      styles: mapStyles,
+      styles: MAP_STYLES_DARK,
       disableDefaultUI: true,
       zoomControl: true,
       zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER },
@@ -670,20 +710,24 @@ body {
       fullscreenControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP }
     });
 
+    window._nixMapReady = true;
+    if (mapFallbackTimer) clearTimeout(mapFallbackTimer);
+
     // Ocultar loader
-    document.getElementById('mapLoader').style.display = 'none';
+    const loader = document.getElementById('mapLoader');
+    if (loader) loader.style.display = 'none';
 
     let isSatellite = false;
     let markers = {};
     let infoWindow = new google.maps.InfoWindow();
 
     // Crear marcadores
-    Object.entries(activos).forEach(([id, a]) => {
+    Object.entries(ACTIVOS).forEach(([id, a]) => {
       const marker = new google.maps.Marker({
         position: { lat: a.lat, lng: a.lng },
         map,
         title: a.titulo,
-        icon: iconos[a.tipo],
+        icon: ICONOS_GOOGLE[a.tipo],
         animation: a.tipo === 'alert' ? google.maps.Animation.BOUNCE : null
       });
 
@@ -713,14 +757,14 @@ body {
     window.cambiarCiudad = (ciudad, btn) => {
       document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
       if (btn) btn.classList.add('active');
-      const c = ciudades[ciudad];
+      const c = CIUDADES[ciudad];
       if (c) { map.panTo({ lat: c.lat, lng: c.lng }); map.setZoom(c.zoom); }
     };
 
     window.toggleMapType = () => {
       isSatellite = !isSatellite;
       map.setMapTypeId(isSatellite ? 'satellite' : 'roadmap');
-      if (!isSatellite) map.setOptions({ styles: mapStyles });
+      if (!isSatellite) map.setOptions({ styles: MAP_STYLES_DARK });
       else map.setOptions({ styles: [] });
       document.getElementById('mapTypeBtn').textContent = isSatellite ? '🗺️' : '🛰️';
     };
@@ -735,9 +779,130 @@ body {
 
     window._nixMap = map;
   }
+
+  // ---- Respaldo gratuito: OpenStreetMap (Leaflet), sin API key ----
+  function ensureLeaflet(cb) {
+    if (window.L) { cb(); return; }
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(link);
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    script.onload = cb;
+    document.head.appendChild(script);
+  }
+
+  function activateOsmFallback() {
+    if (osmActivated) return;
+    osmActivated = true;
+    if (mapFallbackTimer) clearTimeout(mapFallbackTimer);
+    if (mapErrorObserver) mapErrorObserver.disconnect();
+
+    const container = document.getElementById('googleMap');
+    const loader = document.getElementById('mapLoader');
+    if (container) container.innerHTML = '';
+    if (loader) loader.style.display = 'none';
+
+    ensureLeaflet(buildOsmMap);
+
+    if (typeof showToast === 'function') {
+      showToast('warning', 'Mapa gratuito activado', 'Google Maps no está disponible. Usando OpenStreetMap. Agrega una API key válida en ⚙️ Configuración para vista satelital HD.');
+    }
+  }
+
+  function buildOsmMap() {
+    const c0 = CIUDADES.jaen;
+    const map = L.map('googleMap', { zoomControl: true, attributionControl: true }).setView([c0.lat, c0.lng], c0.zoom);
+
+    const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19, subdomains: 'abcd'
+    }).addTo(map);
+
+    const satTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri', maxZoom: 19
+    });
+
+    let markers = {};
+
+    Object.entries(ACTIVOS).forEach(([id, a]) => {
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:16px;height:16px;border-radius:50%;background:${COLORES_ACTIVO[a.tipo]};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.5)${a.tipo === 'alert' ? ';animation:pulseMarker 1.2s infinite' : ''}"></div>`,
+        iconSize: [16, 16], iconAnchor: [8, 8]
+      });
+      const marker = L.marker([a.lat, a.lng], { icon }).addTo(map);
+      marker.bindPopup(`
+        <div style="font-family:-apple-system,sans-serif;min-width:170px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:5px;color:#111">${a.titulo}</div>
+          <div style="font-size:11.5px;line-height:1.7;color:#333">${a.info}</div>
+          <button onclick="window.navigateTo('chat');window.setTimeout(()=>{document.getElementById('chatInput').value='Dame información sobre: ${a.titulo}';},300)" style="margin-top:8px;padding:5px 10px;background:#6366f1;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">Consultar a NIX IA →</button>
+        </div>
+      `);
+      markers[id] = { marker, data: a };
+    });
+
+    let isSatellite = false;
+
+    window.focusMarker = (id) => {
+      const m = markers[id];
+      if (!m) return;
+      map.setView(m.marker.getLatLng(), 17);
+      m.marker.openPopup();
+    };
+
+    window.cambiarCiudad = (ciudad, btn) => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      const c = CIUDADES[ciudad];
+      if (c) map.setView([c.lat, c.lng], c.zoom);
+    };
+
+    window.toggleMapType = () => {
+      isSatellite = !isSatellite;
+      if (isSatellite) { map.removeLayer(darkTiles); satTiles.addTo(map); }
+      else { map.removeLayer(satTiles); darkTiles.addTo(map); }
+      document.getElementById('mapTypeBtn').textContent = isSatellite ? '🗺️' : '🛰️';
+    };
+
+    window.irAMiUbicacion = () => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(pos => {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+      });
+    };
+
+    window._nixMap = map;
+    window._nixMapReady = true;
+  }
+
+  function reloadMapWithNewKey() {
+    if (mapErrorObserver) mapErrorObserver.disconnect();
+    if (mapFallbackTimer) clearTimeout(mapFallbackTimer);
+    if (window._nixMap && window.L && window._nixMap instanceof L.Map) {
+      window._nixMap.remove();
+    }
+    const container = document.getElementById('googleMap');
+    if (container) container.innerHTML = '';
+    if (typeof showToast === 'function') {
+      showToast('info', 'Aplicando nueva clave', 'Recargando la página para usar la nueva API key de mapas...');
+    }
+    setTimeout(() => location.reload(), 900);
+  }
+
+  function saveGmapsKey() {
+    const input = document.getElementById('settingsGmapsKey');
+    const key = input ? input.value.trim() : '';
+    if (!key) {
+      localStorage.removeItem('nix-gmaps-key');
+    } else {
+      localStorage.setItem('nix-gmaps-key', key);
+    }
+    reloadMapWithNewKey();
+  }
 </script>
-<script async defer
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBFeX18iOle4P4BBFCdFuOnnS_2ucmBz3s&callback=initMap">
+<script>
+  window.addEventListener('DOMContentLoaded', loadGoogleMaps);
 </script>
 </head>
 <body>
@@ -761,12 +926,12 @@ body {
         <form class="login-form" onsubmit="handleLogin(event)">
             <div class="form-group">
                 <label>Usuario</label>
-                <input type="text" id="loginEmail" placeholder="usuario" value="administrador" required>
+                <input type="text" id="loginEmail" placeholder="usuario" required>
             </div>
             <div class="form-group">
                 <label>Contraseña</label>
                 <div class="password-field-wrapper">
-                    <input type="password" id="loginPass" placeholder="••••••••" value="Nicolas1987" required>
+                    <input type="password" id="loginPass" placeholder="••••••••" required>
                     <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('loginPass', this)" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁️</button>
                 </div>
             </div>
@@ -1425,6 +1590,17 @@ body {
                         </div>
                     </div>
                     <div class="admin-card">
+                        <h3>🗺️ API Key — Google Maps</h3>
+                        <div style="margin-bottom:14px">
+                            <div class="setting-name" style="margin-bottom:8px">Clave de Google Maps (opcional)</div>
+                            <input type="password" id="settingsGmapsKey" placeholder="AIzaSy..." style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:13.5px;outline:none;margin-bottom:10px">
+                            <button class="login-btn" style="margin-top:0" onclick="saveGmapsKey()">Guardar y recargar mapa</button>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6">
+                            Sin una clave válida, NIX PRO usa automáticamente un mapa gratuito (OpenStreetMap) en GPS &amp; Mapas. Para vista satelital de alta calidad, obtén una key en <strong>console.cloud.google.com</strong>
+                        </div>
+                    </div>
+                    <div class="admin-card">
                         <h3>🎨 Apariencia</h3>
                         <div class="setting-row">
                             <div class="setting-info"><div class="setting-name">Modo oscuro</div><div class="setting-desc">Tema oscuro para el sistema</div></div>
@@ -1554,19 +1730,10 @@ window.addEventListener('load', () => {
     // Build calendar
     renderCalendar();
 
-    // Google Maps error fallback
-    window.gm_authFailure = function() {
-        const loader = document.getElementById('mapLoader');
-        if (loader) {
-            loader.innerHTML = `
-                <div style="text-align:center;padding:20px">
-                    <div style="font-size:36px;margin-bottom:12px">🗺️</div>
-                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Mapa no disponible</div>
-                    <div style="font-size:12px;color:var(--text-secondary)">La API key de Google Maps necesita habilitarse en Google Cloud Console.</div>
-                    <a href="https://console.cloud.google.com/apis/library/maps-javascript-api" target="_blank" style="display:inline-block;margin-top:12px;padding:8px 16px;background:var(--gradient);color:white;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none">Activar Maps API →</a>
-                </div>`;
-        }
-    };
+    // Precargar campo de API key de Google Maps en Configuración
+    const savedGmapsKey = localStorage.getItem('nix-gmaps-key');
+    const gmapsInput = document.getElementById('settingsGmapsKey');
+    if (gmapsInput && savedGmapsKey) gmapsInput.value = savedGmapsKey;
 });
 
 // ============================
