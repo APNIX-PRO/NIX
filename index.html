@@ -1175,15 +1175,37 @@ body {
                     <p class="page-subtitle">Asistente con inteligencia real · Claude AI o Gemini · EPS Marañón</p>
                 </div>
 
-                <div id="apiKeyBanner" class="api-key-banner" style="display:none">
-                    <span>🔑</span>
-                    <span style="color:var(--warning);font-weight:600;flex-shrink:0">API Key requerida:</span>
-                    <select id="apiProviderInput" onchange="onBannerProviderChange()" style="background:#0e0e1e;border:1px solid #2a2a4a;border-radius:8px;color:#e0e0ff;font-size:13px;padding:6px 8px">
-                        <option value="claude">Claude (Anthropic)</option>
-                        <option value="gemini">Gemini (Google)</option>
-                    </select>
-                    <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-...">
-                    <button class="api-save-btn" onclick="saveApiKey()">Guardar</button>
+                <div id="apiKeyBanner" style="display:none;flex-direction:column;gap:10px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.25);border-radius:14px;padding:16px 18px;margin-bottom:16px">
+                    <!-- Row 1: title + provider -->
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        <span style="font-size:18px">🔑</span>
+                        <div>
+                            <div style="font-weight:700;color:var(--warning);font-size:13.5px">API Key requerida para IA real</div>
+                            <div style="font-size:12px;color:var(--text-tertiary)">Sin ella NIX responde en modo demo básico</div>
+                        </div>
+                        <select id="apiProviderInput" onchange="onBannerProviderChange()" style="margin-left:auto;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12.5px;padding:7px 10px;outline:none">
+                            <option value="claude">Claude (Anthropic)</option>
+                            <option value="gemini">Gemini (Google)</option>
+                        </select>
+                    </div>
+                    <!-- Row 2: input + eye + save -->
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <div style="position:relative;flex:1">
+                            <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."
+                                oninput="onBannerKeyInput(this)"
+                                style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:9px 40px 9px 12px;color:var(--text-primary);font-size:13px;outline:none;transition:border-color .2s">
+                            <button type="button" onclick="toggleBannerKeyVisibility(this)"
+                                style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:none;border:none;cursor:pointer;font-size:14px;border-radius:7px"
+                                title="Mostrar / ocultar">👁️</button>
+                        </div>
+                        <button class="api-save-btn" onclick="saveApiKey()" id="bannerSaveBtn" style="padding:9px 18px">Guardar</button>
+                        <button onclick="closeBanner()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-tertiary);padding:4px" title="Cerrar">×</button>
+                    </div>
+                    <!-- Row 3: links -->
+                    <div id="bannerLinks" style="font-size:12px;color:var(--text-tertiary)">
+                        Claude: <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">console.anthropic.com →</a>
+                        &nbsp;·&nbsp; Gemini (gratis): <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">aistudio.google.com →</a>
+                    </div>
                 </div>
 
                 <div class="chat-layout">
@@ -1588,33 +1610,78 @@ body {
                 <div class="settings-grid">
                     <div class="admin-card">
                         <h3>🔑 API Key — Proveedor de IA</h3>
+
+                        <!-- Provider selector -->
                         <div style="margin-bottom:14px">
                             <div class="setting-name" style="margin-bottom:8px">Proveedor activo</div>
                             <select id="settingsProvider" onchange="onSettingsProviderChange()" style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:13.5px;outline:none;margin-bottom:14px">
-                                <option value="claude">Claude (Anthropic) — Sonnet</option>
+                                <option value="claude">Claude (Anthropic) — Sonnet 4.6</option>
                                 <option value="gemini">Gemini (Google)</option>
                             </select>
 
+                            <!-- CLAUDE BLOCK -->
                             <div id="claudeKeyBlock">
-                                <div class="setting-name" style="margin-bottom:8px">Clave de Anthropic</div>
-                                <input type="password" id="settingsApiKeyClaude" placeholder="sk-ant-api03-..." style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:13.5px;outline:none;margin-bottom:10px">
-                                <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;margin-bottom:10px">
-                                    Obtén tu API key en <strong>console.anthropic.com</strong>
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                                    <div class="setting-name">Clave de Anthropic</div>
+                                    <div id="claudeKeyStatus" style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:8px;background:rgba(245,158,11,0.1);color:#f59e0b">Sin configurar</div>
+                                </div>
+                                <!-- Input row -->
+                                <div style="position:relative;margin-bottom:8px">
+                                    <input type="password" id="settingsApiKeyClaude"
+                                        placeholder="sk-ant-api03-..."
+                                        oninput="onClaudeKeyInput(this)"
+                                        style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 44px 10px 14px;color:var(--text-primary);font-size:13.5px;outline:none;transition:border-color .2s">
+                                    <button type="button" onclick="toggleSettingsKeyVisibility('settingsApiKeyClaude',this)"
+                                        style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:34px;height:34px;background:none;border:none;cursor:pointer;font-size:16px;border-radius:8px;transition:background .15s"
+                                        onmouseover="this.style.background='rgba(99,102,241,0.12)'" onmouseout="this.style.background='none'"
+                                        title="Mostrar / ocultar">👁️</button>
+                                </div>
+                                <!-- Auto-detect hint -->
+                                <div id="claudeAutoDetect" style="font-size:11.5px;color:var(--text-tertiary);margin-bottom:10px;display:none;align-items:center;gap:5px">
+                                    <span>🔍</span><span id="claudeAutoDetectMsg"></span>
+                                </div>
+                                <!-- Link -->
+                                <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;margin-bottom:12px">
+                                    ¿No tienes una? Créala gratis en
+                                    <a href="https://console.anthropic.com/settings/keys" target="_blank"
+                                        style="color:var(--accent);text-decoration:none;font-weight:600">console.anthropic.com →</a>
+                                </div>
+                                <!-- Buttons -->
+                                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                                    <button class="login-btn" style="flex:1;margin-top:0;min-width:120px" onclick="saveApiKeyFromSettings()">Guardar y activar</button>
+                                    <button id="claudeTestBtn" onclick="testClaudeKey()" style="flex:0 0 auto;padding:12px 16px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;color:var(--text-primary);font-size:13.5px;font-weight:600;cursor:pointer;transition:var(--transition)" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">Probar 🔌</button>
                                 </div>
                             </div>
 
+                            <!-- GEMINI BLOCK -->
                             <div id="geminiKeyBlock" style="display:none">
-                                <div class="setting-name" style="margin-bottom:8px">Clave de Google AI (Gemini)</div>
-                                <input type="password" id="settingsApiKeyGemini" placeholder="AIzaSy..." style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text-primary);font-size:13.5px;outline:none;margin-bottom:10px">
-                                <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;margin-bottom:10px">
-                                    Obtén tu API key gratis en <strong>aistudio.google.com/apikey</strong>
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                                    <div class="setting-name">Clave de Google AI (Gemini)</div>
+                                    <div id="geminiKeyStatus" style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:8px;background:rgba(245,158,11,0.1);color:#f59e0b">Sin configurar</div>
                                 </div>
+                                <div style="position:relative;margin-bottom:8px">
+                                    <input type="password" id="settingsApiKeyGemini"
+                                        placeholder="AIzaSy..."
+                                        oninput="onGeminiKeyInput(this)"
+                                        style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 44px 10px 14px;color:var(--text-primary);font-size:13.5px;outline:none;transition:border-color .2s">
+                                    <button type="button" onclick="toggleSettingsKeyVisibility('settingsApiKeyGemini',this)"
+                                        style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:34px;height:34px;background:none;border:none;cursor:pointer;font-size:16px;border-radius:8px;transition:background .15s"
+                                        onmouseover="this.style.background='rgba(99,102,241,0.12)'" onmouseout="this.style.background='none'"
+                                        title="Mostrar / ocultar">👁️</button>
+                                </div>
+                                <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;margin-bottom:12px">
+                                    Gratis en
+                                    <a href="https://aistudio.google.com/apikey" target="_blank"
+                                        style="color:var(--accent);text-decoration:none;font-weight:600">aistudio.google.com/apikey →</a>
+                                </div>
+                                <button class="login-btn" style="margin-top:0" onclick="saveApiKeyFromSettings()">Guardar y activar IA real</button>
                             </div>
-
-                            <button class="login-btn" style="margin-top:0" onclick="saveApiKeyFromSettings()">Guardar y activar IA real</button>
                         </div>
-                        <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6">
-                            Las claves se guardan localmente en tu navegador (localStorage), nunca en un servidor externo.
+
+                        <!-- Info footer -->
+                        <div style="font-size:11.5px;color:var(--text-tertiary);line-height:1.7;padding-top:12px;border-top:1px solid var(--border-light)">
+                            🔒 La clave se guarda <strong>solo en tu navegador</strong> (localStorage). Nunca se envía a ningún servidor propio de NIX.<br>
+                            📡 Se envía directamente a la API de Anthropic / Google con cada consulta.
                         </div>
                     </div>
                     <div class="admin-card">
@@ -2126,18 +2193,13 @@ window.addEventListener('load', () => {
     document.documentElement.setAttribute('data-theme', theme);
     updateThemeUI(theme);
 
-    // Load API key (proveedor activo: claude o gemini)
-    const activeProvider = getCurrentProvider();
-    const savedKey = getCurrentApiKey();
-    const providerSelectEl = document.getElementById('settingsProvider');
-    if (providerSelectEl) { providerSelectEl.value = activeProvider; onSettingsProviderChange(); }
+    // Load API keys into settings panel + status
+    loadSavedKeysToSettings();
     const bannerProviderEl = document.getElementById('apiProviderInput');
-    if (bannerProviderEl) bannerProviderEl.value = activeProvider;
+    if (bannerProviderEl) bannerProviderEl.value = getCurrentProvider();
 
+    const savedKey = getCurrentApiKey();
     if (savedKey) {
-        const fieldId = activeProvider === 'claude' ? 'settingsApiKeyClaude' : 'settingsApiKeyGemini';
-        const settingsInput = document.getElementById(fieldId);
-        if (settingsInput) settingsInput.value = savedKey;
         updateAiStatus(true);
     } else {
         updateAiStatus(false);
@@ -2378,15 +2440,20 @@ async function sendMessage() {
     isLoading = true;
     setSendBtnState(true);
     const typingId = addTypingIndicator();
+    _lastTypingId = typingId;
 
     try {
         const aiText = provider === 'gemini'
             ? await callGemini(apiKey)
-            : await callClaude(apiKey);
+            : await callClaude(apiKey); // Claude ya renderiza en streaming
 
-        removeTypingIndicator(typingId);
-        addMessage(aiText, 'ai');
-        conversationHistory.push({ role: 'assistant', content: aiText });
+        if (provider === 'gemini') {
+            removeTypingIndicator(typingId);
+            addMessage(aiText, 'ai');
+        } else {
+            // Claude: la burbuja ya fue creada en streaming, solo registrar en historial
+        }
+        if (aiText) conversationHistory.push({ role: 'assistant', content: aiText });
 
         // Save to history list
         if (conversationHistory.length === 2) {
@@ -2404,7 +2471,7 @@ async function sendMessage() {
     }
 }
 
-// ---- Claude (Anthropic) ----
+// ---- Claude (Anthropic) — con streaming token a token ----
 async function callClaude(apiKey) {
     const kbContext = buildKBContextText();
     const systemPrompt = kbContext
@@ -2440,6 +2507,7 @@ async function callClaude(apiKey) {
         body: JSON.stringify({
             model: 'claude-sonnet-4-6',
             max_tokens: 1500,
+            stream: true,
             system: systemPrompt,
             messages: messagesForApi
         })
@@ -2450,13 +2518,74 @@ async function callClaude(apiKey) {
         throw new Error(errData.error?.message || `Error ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.content?.[0]?.text || 'No se pudo obtener respuesta.';
+    // Streaming: crear burbuja vacía y rellenar token a token
+    const typingEl = document.getElementById(_lastTypingId);
+    if (typingEl) typingEl.remove();
+
+    const container = document.getElementById('chatMessages');
+    const msgEl = document.createElement('div');
+    msgEl.className = 'chat-message ai';
+    msgEl.innerHTML = `<div class="msg-avatar ai">N</div><div class="msg-content" id="streamBubble"></div>`;
+    container.appendChild(msgEl);
+    const bubble = document.getElementById('streamBubble');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buf = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') break;
+            try {
+                const evt = JSON.parse(raw);
+                if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+                    fullText += evt.delta.text;
+                    bubble.innerHTML = renderMarkdownSimple(fullText) + '<span style="opacity:.4;animation:blink 1s infinite">▌</span>';
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (_) {}
+        }
+    }
+    bubble.innerHTML = renderMarkdownSimple(fullText);
+    container.scrollTop = container.scrollHeight;
+    return fullText;
+}
+
+// Cursor blink style
+(function() {
+    const s = document.createElement('style');
+    s.textContent = '@keyframes blink{0%,100%{opacity:.4}50%{opacity:0}}';
+    document.head.appendChild(s);
+})();
+
+let _lastTypingId = null;
+
+// Markdown renderer (mejorado, usado por streaming)
+function renderMarkdownSimple(text) {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/^### (.*)/gm, '<h4 style="font-size:14px;font-weight:700;margin-bottom:4px;margin-top:10px">$1</h4>')
+        .replace(/^## (.*)/gm, '<h3 style="font-size:15px;font-weight:700;margin-bottom:6px;margin-top:12px">$1</h3>')
+        .replace(/^# (.*)/gm, '<h2 style="font-size:16px;font-weight:700;margin-bottom:8px">$1</h2>')
+        .replace(/^• (.*)/gm, '<li>$1</li>')
+        .replace(/^- (.*)/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+        .replace(/\n/g, '<br>');
 }
 
 // ---- Gemini (Google) ----
 async function callGemini(apiKey) {
-    const model = 'gemini-flash-latest';
+    const model = 'gemini-3.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const kbContext = buildKBContextText();
@@ -2790,6 +2919,183 @@ document.addEventListener('click', e => {
         }
     }
 });
+
+// ============================
+// API KEY — MEJORAS UI
+// ============================
+
+// Autodetectar proveedor por prefijo
+function detectProviderByKey(key) {
+    if (key.startsWith('sk-ant') || key.startsWith('sk-ant-api')) return 'claude';
+    if (key.startsWith('AIza')) return 'gemini';
+    return null;
+}
+
+// Mostrar / ocultar en el panel de Configuración
+function toggleSettingsKeyVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    btn.textContent = isHidden ? '🙈' : '👁️';
+}
+
+// Mostrar / ocultar en el banner del chat
+function toggleBannerKeyVisibility(btn) {
+    const input = document.getElementById('apiKeyInput');
+    if (!input) return;
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    btn.textContent = isHidden ? '🙈' : '👁️';
+}
+
+// Cerrar banner sin guardar
+function closeBanner() {
+    const b = document.getElementById('apiKeyBanner');
+    if (b) b.style.display = 'none';
+}
+
+// Validar visualmente mientras se escribe (Claude)
+function onClaudeKeyInput(input) {
+    const key = input.value.trim();
+    const statusEl = document.getElementById('claudeKeyStatus');
+    const autoEl = document.getElementById('claudeAutoDetect');
+    const autoMsgEl = document.getElementById('claudeAutoDetectMsg');
+
+    const detected = detectProviderByKey(key);
+
+    if (!key) {
+        input.style.borderColor = '';
+        if (statusEl) { statusEl.textContent = 'Sin configurar'; statusEl.style.background = 'rgba(245,158,11,0.1)'; statusEl.style.color = '#f59e0b'; }
+        if (autoEl) autoEl.style.display = 'none';
+        return;
+    }
+
+    if (detected === 'gemini') {
+        input.style.borderColor = '#f59e0b';
+        if (autoEl) { autoEl.style.display = 'flex'; autoMsgEl.textContent = 'Parece una key de Gemini. ¿Cambiar proveedor?'; }
+        return;
+    }
+
+    if (AI_PROVIDERS.claude.validate(key)) {
+        input.style.borderColor = '#10b981';
+        if (statusEl) { statusEl.textContent = '✓ Formato válido'; statusEl.style.background = 'rgba(16,185,129,0.1)'; statusEl.style.color = '#10b981'; }
+        if (autoEl) autoEl.style.display = 'none';
+    } else {
+        input.style.borderColor = key.length > 8 ? '#ef4444' : '';
+        if (statusEl && key.length > 8) { statusEl.textContent = 'Formato incorrecto'; statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#ef4444'; }
+        if (autoEl) autoEl.style.display = 'none';
+    }
+}
+
+// Validar visualmente mientras se escribe (Gemini)
+function onGeminiKeyInput(input) {
+    const key = input.value.trim();
+    const statusEl = document.getElementById('geminiKeyStatus');
+    if (!key) { input.style.borderColor = ''; if (statusEl) { statusEl.textContent = 'Sin configurar'; statusEl.style.background = 'rgba(245,158,11,0.1)'; statusEl.style.color = '#f59e0b'; } return; }
+    if (AI_PROVIDERS.gemini.validate(key)) {
+        input.style.borderColor = '#10b981';
+        if (statusEl) { statusEl.textContent = '✓ Formato válido'; statusEl.style.background = 'rgba(16,185,129,0.1)'; statusEl.style.color = '#10b981'; }
+    } else {
+        if (key.length > 8) input.style.borderColor = '#ef4444';
+        if (statusEl && key.length > 8) { statusEl.textContent = 'Formato incorrecto'; statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#ef4444'; }
+    }
+}
+
+// Autodetectar proveedor en el banner
+function onBannerKeyInput(input) {
+    const key = input.value.trim();
+    const detected = detectProviderByKey(key);
+    if (detected) {
+        const sel = document.getElementById('apiProviderInput');
+        if (sel && sel.value !== detected) {
+            sel.value = detected;
+            onBannerProviderChange();
+        }
+    }
+}
+
+// Probar conexión real con Claude antes de guardar
+async function testClaudeKey() {
+    const input = document.getElementById('settingsApiKeyClaude');
+    const key = input ? input.value.trim() : '';
+    const btn = document.getElementById('claudeTestBtn');
+
+    if (!key || !AI_PROVIDERS.claude.validate(key)) {
+        showToast('warning', 'Ingresa la key primero', 'Pega tu API key de Anthropic antes de probar.');
+        return;
+    }
+
+    btn.textContent = '⏳ Probando...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': key,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 20,
+                messages: [{ role: 'user', content: 'Di solo: OK' }]
+            })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            const reply = data.content?.[0]?.text || '';
+            btn.textContent = '✅ Conexión OK';
+            btn.style.borderColor = '#10b981';
+            btn.style.color = '#10b981';
+            showToast('success', 'Conexión exitosa', `Claude respondió: "${reply.trim()}". ¡Guarda la key!`);
+        } else {
+            const err = await res.json().catch(() => ({}));
+            const msg = err.error?.message || `Error ${res.status}`;
+            btn.textContent = '❌ Falló';
+            btn.style.borderColor = '#ef4444';
+            btn.style.color = '#ef4444';
+            showToast('danger', 'Conexión fallida', msg);
+        }
+    } catch (e) {
+        btn.textContent = '❌ Sin red';
+        btn.style.borderColor = '#ef4444';
+        btn.style.color = '#ef4444';
+        showToast('danger', 'Error de red', e.message);
+    } finally {
+        btn.disabled = false;
+        setTimeout(() => {
+            btn.textContent = 'Probar 🔌';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+        }, 4000);
+    }
+}
+
+// Actualizar placeholder del banner según proveedor
+function onBannerProviderChange() {
+    const provider = document.getElementById('apiProviderInput')?.value || 'claude';
+    const input = document.getElementById('apiKeyInput');
+    if (input) input.placeholder = AI_PROVIDERS[provider].placeholder;
+}
+
+// Cargar keys guardadas en los inputs de Configuración al abrir
+function loadSavedKeysToSettings() {
+    const claudeKey = localStorage.getItem(AI_PROVIDERS.claude.keyStorageKey) || '';
+    const geminiKey = localStorage.getItem(AI_PROVIDERS.gemini.keyStorageKey) || '';
+    const activeProvider = getCurrentProvider();
+
+    const claudeInput = document.getElementById('settingsApiKeyClaude');
+    const geminiInput = document.getElementById('settingsApiKeyGemini');
+    const providerSel = document.getElementById('settingsProvider');
+
+    if (claudeInput && claudeKey) { claudeInput.value = claudeKey; onClaudeKeyInput(claudeInput); }
+    if (geminiInput && geminiKey) { geminiInput.value = geminiKey; onGeminiKeyInput(geminiInput); }
+    if (providerSel) { providerSel.value = activeProvider; onSettingsProviderChange(); }
+}
 </script>
 </body>
 </html>
