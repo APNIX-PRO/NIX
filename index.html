@@ -1250,7 +1250,10 @@ body {
                             <div class="chat-input-wrapper">
                                 <textarea id="chatInput" placeholder="Escribe tu consulta a NIX IA..." rows="1" onkeydown="handleChatKey(event)"></textarea>
                                 <div class="chat-input-actions">
-                                    <button class="chat-action-btn" onclick="document.getElementById('kbFileInput').click()" title="Adjuntar documento o foto a la Base de Conocimiento">📎</button>
+                                    <button class="chat-action-btn" onclick="document.getElementById('kbFileInput').click()" title="Adjuntar archivo local a la Base de Conocimiento">📎</button>
+                                    <button class="chat-action-btn" onclick="openGoogleDrivePicker()" title="Importar desde Google Drive" style="font-size:14px">
+                                        <svg width="16" height="16" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
+                                    </button>
                                     <button class="chat-action-btn send-btn" id="sendBtn" onclick="sendMessage()" title="Enviar (Enter)">➤</button>
                                 </div>
                             </div>
@@ -1629,9 +1632,17 @@ body {
                             <div class="setting-info"><div class="setting-name">Inyectar en NIX IA</div><div class="setting-desc">Usar los archivos activos como contexto automático</div></div>
                             <div class="toggle-switch active" id="kbEnabledToggle" onclick="toggleKBEnabled()"></div>
                         </div>
-                        <button class="login-btn" style="margin-top:14px" onclick="openKBManager()">📎 Gestionar documentos y fotos</button>
+                        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+                            <button class="login-btn" style="flex:1;min-width:160px;margin-top:0" onclick="openKBManager()">📎 Gestionar documentos y fotos</button>
+                            <button class="login-btn" style="flex:1;min-width:160px;margin-top:0;background:linear-gradient(135deg,#1a73e8,#34a853)" onclick="openGoogleDrivePicker()">
+                                <span style="display:flex;align-items:center;justify-content:center;gap:6px">
+                                    <svg width="14" height="14" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
+                                    Google Drive
+                                </span>
+                            </button>
+                        </div>
                         <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;margin-top:10px">
-                            Sube informes, resoluciones, normativas (.txt, .md, .csv, .json, .pdf, .docx) o fotos. Los archivos <strong>activos</strong> se envían automáticamente como contexto a Claude o Gemini en cada consulta. Todo se guarda localmente en tu navegador.
+                            Sube archivos locales o impórtalos directamente desde <strong>Google Drive</strong>. Los archivos <strong>activos</strong> se envían automáticamente como contexto a NIX en cada consulta. Todo se guarda en Firebase (nube), visible en todos tus equipos.
                         </div>
                     </div>
                     <div class="admin-card">
@@ -2899,6 +2910,315 @@ document.addEventListener('click', e => {
             sidebar.classList.remove('open');
         }
     }
+});
+
+// ============================
+// GOOGLE DRIVE — BASE DE CONOCIMIENTO
+// Importa archivos directamente desde el Drive del usuario.
+// Requiere: Google Client ID configurado en Ajustes.
+// Flujo: OAuth2 → Google Picker → descarga vía Drive API → procesa igual que archivo local → guarda en Firebase KB_COLLECTION.
+// ============================
+
+const GD_SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+const GD_DISCOVERY = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+const GD_CLIENT_ID_KEY = 'nix-gdrive-client-id';
+
+// Mimetypes soportados: docs, sheets, PDFs, imágenes, texto plano, JSON, CSV
+const GD_SUPPORTED_MIME = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.google-apps.document',
+    'application/vnd.google-apps.spreadsheet',
+    'text/plain', 'text/csv', 'text/markdown',
+    'application/json',
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif'
+];
+
+// Tipos Google Docs exportables → mimeType de descarga
+const GD_EXPORT_MAP = {
+    'application/vnd.google-apps.document': { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ext: 'docx' },
+    'application/vnd.google-apps.spreadsheet': { mime: 'text/csv', ext: 'csv' }
+};
+
+let gdTokenClient = null;
+let gdAccessToken = null;
+let gdPickerApiLoaded = false;
+let gdGapiLoaded = false;
+let gdLoadingPicker = false;
+
+// ---- Carga de librerías Google ----
+function loadGapiScript() {
+    return new Promise((resolve) => {
+        if (window.gapi) return resolve();
+        const s = document.createElement('script');
+        s.src = 'https://apis.google.com/js/api.js';
+        s.onload = resolve;
+        document.head.appendChild(s);
+    });
+}
+
+function loadGsiScript() {
+    return new Promise((resolve) => {
+        if (window.google && window.google.accounts) return resolve();
+        const s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.onload = resolve;
+        document.head.appendChild(s);
+    });
+}
+
+async function ensureGoogleLibsLoaded() {
+    await Promise.all([loadGapiScript(), loadGsiScript()]);
+    await new Promise((resolve) => {
+        if (gdGapiLoaded) return resolve();
+        gapi.load('client:picker', () => {
+            gdGapiLoaded = true;
+            gdPickerApiLoaded = true;
+            resolve();
+        });
+    });
+    if (!gapi.client.getToken || !gapi.client.drive) {
+        await gapi.client.load(GD_DISCOVERY);
+    }
+}
+
+// ---- Obtener Client ID ----
+function getGDClientId() {
+    return localStorage.getItem(GD_CLIENT_ID_KEY) || '';
+}
+
+// ---- Punto de entrada principal ----
+async function openGoogleDrivePicker() {
+    const clientId = getGDClientId();
+    if (!clientId) {
+        openModal('🔑 Configurar Google Drive', gdClientIdSetupHTML());
+        return;
+    }
+
+    if (gdLoadingPicker) return;
+    gdLoadingPicker = true;
+    showToast('info', 'Google Drive', 'Conectando con tu cuenta Google…');
+
+    try {
+        await ensureGoogleLibsLoaded();
+
+        if (gdAccessToken) {
+            showGDPicker(gdAccessToken);
+        } else {
+            gdTokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: GD_SCOPES,
+                callback: (response) => {
+                    if (response.error) {
+                        showToast('danger', 'Error de autenticación', response.error);
+                        gdLoadingPicker = false;
+                        return;
+                    }
+                    gdAccessToken = response.access_token;
+                    showGDPicker(gdAccessToken);
+                }
+            });
+            gdTokenClient.requestAccessToken({ prompt: '' });
+        }
+    } catch (err) {
+        showToast('danger', 'Error Google Drive', err.message || String(err));
+        gdLoadingPicker = false;
+    }
+}
+
+// ---- Mostrar el Picker de Google Drive ----
+function showGDPicker(token) {
+    gdLoadingPicker = false;
+    try {
+        const view = new google.picker.DocsView()
+            .setIncludeFolders(false)
+            .setMimeTypes(GD_SUPPORTED_MIME.join(','))
+            .setMode(google.picker.DocsViewMode.LIST);
+
+        const picker = new google.picker.PickerBuilder()
+            .setTitle('Selecciona archivos para NIX — Base de Conocimiento')
+            .setLocale('es')
+            .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+            .addView(view)
+            .setOAuthToken(token)
+            .setCallback(gdPickerCallback)
+            .build();
+
+        picker.setVisible(true);
+    } catch (err) {
+        showToast('danger', 'Error al abrir Picker', err.message);
+    }
+}
+
+// ---- Callback cuando el usuario selecciona archivos ----
+async function gdPickerCallback(data) {
+    if (data.action !== google.picker.Action.PICKED) return;
+    const docs = data.docs || [];
+    if (!docs.length) return;
+
+    showToast('info', 'Google Drive', `Descargando ${docs.length} archivo${docs.length > 1 ? 's' : ''}…`);
+
+    let added = 0;
+    for (const doc of docs) {
+        try {
+            const file = await gdDownloadAsFile(doc);
+            if (!file) continue;
+
+            // Reutiliza exactamente la misma lógica que el upload local
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            const isImage = file.type.startsWith('image/');
+            const id = 'kb_gd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+            const item = {
+                name: file.name,
+                ext,
+                type: isImage ? 'image' : 'document',
+                sizeKB: Math.round(file.size / 1024),
+                dateAdded: new Date().toISOString(),
+                active: true,
+                textContent: '',
+                imageUrl: '',
+                mimeType: file.type || 'application/octet-stream',
+                source: 'google_drive',
+                driveFileId: doc.id
+            };
+
+            if (isImage) {
+                const blob = await compressImageFile(file);
+                item.mimeType = 'image/jpeg';
+                item.sizeKB = Math.round(blob.size / 1024);
+                const storageRef = storage.ref().child(`kb_images/${id}.jpg`);
+                await storageRef.put(blob, { contentType: 'image/jpeg' });
+                item.imageUrl = await storageRef.getDownloadURL();
+            } else if (ext === 'pdf') {
+                item.textContent = (await extractPdfText(file)).slice(0, KB_MAX_TEXT_CHARS_PER_FILE);
+            } else if (ext === 'docx') {
+                item.textContent = (await extractDocxText(file)).slice(0, KB_MAX_TEXT_CHARS_PER_FILE);
+            } else if (KB_TEXT_EXT.includes(ext) || ext === 'csv') {
+                item.textContent = String(await readFileAsText(file)).slice(0, KB_MAX_TEXT_CHARS_PER_FILE);
+            } else {
+                showToast('warning', 'Formato no soportado', `"${file.name}" no pudo procesarse.`);
+                continue;
+            }
+
+            await KB_COLLECTION.doc(id).set(item);
+            added++;
+        } catch (err) {
+            showToast('danger', 'Error al procesar', `${doc.name}: ${err.message}`);
+        }
+    }
+
+    if (added > 0) {
+        showToast('success', 'Google Drive → Base de Conocimiento', `${added} archivo${added > 1 ? 's importados' : ' importado'} correctamente · disponible en todos los equipos.`);
+        if (document.getElementById('modalOverlay')?.classList.contains('active')) {
+            renderKBModalList();
+        }
+    }
+}
+
+// ---- Descarga un archivo de Drive como objeto File ----
+async function gdDownloadAsFile(doc) {
+    const mimeType = doc.mimeType || '';
+    let downloadMime = mimeType;
+    let ext = (doc.name.split('.').pop() || '').toLowerCase();
+    let fileName = doc.name;
+    let url;
+
+    // Google Docs nativos → exportar a formato descargable
+    if (GD_EXPORT_MAP[mimeType]) {
+        const exportInfo = GD_EXPORT_MAP[mimeType];
+        downloadMime = exportInfo.mime;
+        ext = exportInfo.ext;
+        fileName = doc.name + '.' + ext;
+        url = `https://www.googleapis.com/drive/v3/files/${doc.id}/export?mimeType=${encodeURIComponent(downloadMime)}`;
+    } else {
+        url = `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
+    }
+
+    const response = await fetch(url, {
+        headers: { Authorization: 'Bearer ' + gdAccessToken }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status} al descargar "${doc.name}"`);
+    }
+
+    const blob = await response.blob();
+    return new File([blob], fileName, { type: downloadMime });
+}
+
+// ---- UI para configurar Client ID ----
+function gdClientIdSetupHTML() {
+    const saved = getGDClientId();
+    return `
+        <div style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:16px">
+            Para importar archivos desde tu Google Drive, necesitas un <strong>Client ID de OAuth 2.0</strong> de Google Cloud Console.
+        </div>
+        <div style="background:var(--bg-secondary);border-radius:10px;padding:14px;margin-bottom:16px;font-size:12.5px;line-height:1.8;color:var(--text-secondary)">
+            <strong style="color:var(--text-primary)">Pasos para obtener tu Client ID gratuito:</strong><br>
+            1. Ve a <strong>console.cloud.google.com</strong><br>
+            2. Crea un proyecto → <em>Biblioteca de APIs</em> → activa <strong>Google Drive API</strong> y <strong>Google Picker API</strong><br>
+            3. Ve a <em>Credenciales</em> → <strong>Crear credenciales → ID de cliente de OAuth 2.0</strong><br>
+            4. Tipo: <strong>Aplicación web</strong><br>
+            5. En <em>Orígenes autorizados</em> agrega el dominio donde usas NIX PRO (ej: <code>https://tu-dominio.com</code>)<br>
+            6. Copia el <strong>Client ID</strong> y pégalo abajo:
+        </div>
+        <input type="text" id="gdClientIdInput" placeholder="xxxxxxxx.apps.googleusercontent.com"
+            value="${saved}"
+            style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text-primary);font-size:13px;outline:none;margin-bottom:12px">
+        <button class="login-btn" style="margin-top:0" onclick="saveGDClientId()">
+            <svg width="14" height="14" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline;vertical-align:middle;margin-right:6px"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
+            Guardar y conectar Google Drive
+        </button>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:10px;line-height:1.6">
+            El Client ID se guarda en tu navegador (localStorage). No se envía a ningún servidor externo.
+        </div>
+    `;
+}
+
+function saveGDClientId() {
+    const val = (document.getElementById('gdClientIdInput')?.value || '').trim();
+    if (!val || !val.includes('.apps.googleusercontent.com')) {
+        showToast('warning', 'Client ID inválido', 'Debe terminar en .apps.googleusercontent.com');
+        return;
+    }
+    localStorage.setItem(GD_CLIENT_ID_KEY, val);
+    gdAccessToken = null; // reset token con nueva clave
+    closeModal();
+    showToast('success', 'Google Drive configurado', 'Ahora puedes importar archivos desde tu Drive.');
+    setTimeout(() => openGoogleDrivePicker(), 400);
+}
+
+// ---- Agregar opción en Configuración (Settings) para el Client ID ----
+function injectGDSettingsRow() {
+    const kbCard = document.querySelector('.admin-card h3');
+    if (!kbCard) return;
+    // busca la tarjeta KB por texto
+    document.querySelectorAll('.admin-card h3').forEach(h3 => {
+        if (h3.textContent.includes('Base de Conocimiento')) {
+            const existing = h3.parentElement.querySelector('#gdSettingsRow');
+            if (existing) return;
+            const row = document.createElement('div');
+            row.id = 'gdSettingsRow';
+            row.className = 'setting-row';
+            row.innerHTML = `
+                <div class="setting-info">
+                    <div class="setting-name">Google Drive Client ID</div>
+                    <div class="setting-desc">${getGDClientId() ? '✅ Configurado · haz clic para cambiar' : '⚙️ No configurado · haz clic para configurar'}</div>
+                </div>
+                <button onclick="openModal('🔑 Google Drive Client ID', gdClientIdSetupHTML())"
+                    style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;color:var(--text-secondary);font-size:12px;cursor:pointer;">
+                    Configurar
+                </button>
+            `;
+            h3.parentElement.insertBefore(row, h3.nextSibling);
+        }
+    });
+}
+
+// Inyectar la fila de configuración cuando cargue la página de Ajustes
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(injectGDSettingsRow, 1200);
 });
 </script>
 </body>
